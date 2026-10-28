@@ -115,6 +115,8 @@ if __name__ == "__main__":
     # 3) sottoinsieme piccolo e statistiche
     small_sims = train_sims[0:10]
     stats = normalization(small_sims, input_cols, output_cols)
+    save_stats(stats, "artifacts/stats.npz")
+
     print(stats.keys())
     print(stats["mean_x"].shape, stats["mean_y"].shape)
 
