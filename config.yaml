@@ -1,0 +1,12 @@
+dataset:
+  root: data/Dataset
+  task: scarce
+  k_points: 16000
+
+columns:
+  input: [0,1,2,3,4,5,6]
+  output: [7,8,9]
+
+split:
+  val_fraction: 0.2
+  seed: 1
