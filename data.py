@@ -36,7 +36,7 @@ class AirfDataset (Dataset):
         points = sim[idx]                                               # array (K, 12)
         x = points[:, self.input_cols]                                  # array (K, n_input)
         y = points[:, self.output_cols]                                 # array (K, n_output)
-        x = (x - self.stats["mean_x"]) / self.stats["std_x"]
+        x = normalize_x(x, self.stats)
         return torch.from_numpy(x).float(), torch.from_numpy(y).float()
 
 def split_by_simulation(sims, names, val_fraction, seed):
@@ -71,6 +71,7 @@ def normalization(train_sims, input_cols, output_cols):
     return stats
 
 
+
 def save_stats(stats, path):
     folder = os.path.dirname(path)              # cartella del file, es. "artifacts"
     if folder:                                  # se path è solo un nome, folder è "" e non serve crearla
@@ -84,6 +85,10 @@ def load_stats(path):
         stats[key] = f[key]
     return stats
 
+def normalize_x(x, stats):
+    x_norm = (x - stats["mean_x"]) / stats["std_x"]
+    return x_norm
+    
 def load_cached(path, n_sims=None):
     if os.path.exists(path):                    # già salvato: lo rileggo, pochi secondi
         with open(path, "rb") as f:
