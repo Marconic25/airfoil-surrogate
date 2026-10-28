@@ -4,8 +4,10 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import os
+import pickle
 #load the dataset
-dataset, dataname = af.dataset.load(root = "data/Dataset", task = "scarce", train = True)
+#dataset, dataname = af.dataset.load(root = "data/Dataset", task = "scarce", train = True)
+
 
 import yaml
 with open("config.yaml") as f:
@@ -18,11 +20,12 @@ seed = cfg["split"]["seed"]
 
 
 class AirfDataset (Dataset):
-    def __init__(self, sims, k, input_cols, output_cols): #qui passi tutto ciò che la classe deve ricordare
+    def __init__(self, sims, k, input_cols, output_cols, stats): #qui passi tutto ciò che la classe deve ricordare
         self.sims = sims
         self.k = k
         self.input_cols = input_cols
         self.output_cols = output_cols
+        self.stats = stats
 
     def __len__(self): #restituisce il numero di simulazioni
         return len(self.sims)
@@ -33,6 +36,7 @@ class AirfDataset (Dataset):
         points = sim[idx]                                               # array (K, 12)
         x = points[:, self.input_cols]                                  # array (K, n_input)
         y = points[:, self.output_cols]                                 # array (K, n_output)
+        x = (x - self.stats["mean_x"]) / self.stats["std_x"]
         return torch.from_numpy(x).float(), torch.from_numpy(y).float()
 
 def split_by_simulation(sims, names, val_fraction, seed):
@@ -54,15 +58,6 @@ def split_by_simulation(sims, names, val_fraction, seed):
         val_names.append(names[i])
     return train_sims, train_names, val_sims, val_names
 
-def normalization(train_sims, input_cols, output_cols):
-    col_train = np.concatenate(train_sims)
-    x = col_train[:, input_cols]
-    y = col_train[:, output_cols]
-    mean_x = x.mean(axis=0)
-    std_x = x.std(axis=0)
-    mean_y = y.mean(axis=0)
-    std_y = y.std(axis=0)
-    return mean_x, std_x, mean_y, std_y
 
 def normalization(train_sims, input_cols, output_cols):
     col_train = np.concatenate(train_sims)
@@ -75,10 +70,6 @@ def normalization(train_sims, input_cols, output_cols):
     stats = {"mean_x": mean_x, "std_x": std_x, "mean_y": mean_y, "std_y": std_y}
     return stats
 
- 1) split train/val per simulazione (dataset e dataname vengono dalla cella di caricamento)
-train_sims, train_names, val_sims, val_names = split_by_simulation(dataset, dataname, val_fraction, seed)
-
-stats = normalization(small_sims, input_cols, output_cols)
 
 def save_stats(stats, path):
     folder = os.path.dirname(path)              # cartella del file, es. "artifacts"
@@ -92,3 +83,39 @@ def load_stats(path):
     for key in f.files:                         # f.files = elenco dei nomi salvati
         stats[key] = f[key]
     return stats
+
+def load_cached(path, n_sims=None):
+    if os.path.exists(path):                    # già salvato: lo rileggo, pochi secondi
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    dataset, dataname = af.dataset.load(root="data/Dataset", task="scarce", train=True)   # lento, solo la prima volta
+    if n_sims is not None:                      # per sviluppare tengo solo le prime n_sims simulazioni
+        dataset = dataset[:n_sims]
+        dataname = dataname[:n_sims]
+    folder = os.path.dirname(path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+    with open(path, "wb") as f:                 # salvo la coppia (dataset, dataname)
+        pickle.dump((dataset, dataname), f)
+    return dataset, dataname
+
+if __name__ == "__main__":
+    # 1) caricamento: la prima volta lento (2-3 minuti), poi dalla cache
+    dataset, dataname = load_cached("data/cache_dev.pkl", n_sims=30)
+
+    # 2) split train/val
+    train_sims, train_names, val_sims, val_names = split_by_simulation(dataset, dataname, val_fraction, seed)
+    print("train:", len(train_sims), "val:", len(val_sims))
+
+    # 3) sottoinsieme piccolo e statistiche
+    small_sims = train_sims[0:10]
+    stats = normalization(small_sims, input_cols, output_cols)
+    print(stats.keys())
+    print(stats["mean_x"].shape, stats["mean_y"].shape)
+
+    # 4) un campione dal Dataset
+    ds = AirfDataset(small_sims, 1000, input_cols, output_cols, stats)
+    x, y = ds[0]
+    print(x.shape, y.shape)
+    print(x.mean(dim=0), x.std(dim=0))
+
