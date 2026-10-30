@@ -14,3 +14,9 @@ split:
 model:
   hidden: 128
   depth: 4
+
+train:
+  lr: 0.001
+  batch_size: 4
+  epochs: 50
+  seed = 0
