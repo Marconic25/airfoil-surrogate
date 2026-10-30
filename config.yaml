@@ -10,3 +10,7 @@ columns:
 split:
   val_fraction: 0.2
   seed: 1
+
+model:
+  hidden: 128
+  depth: 4
