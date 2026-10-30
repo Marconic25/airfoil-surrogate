@@ -36,7 +36,8 @@ class AirfDataset (Dataset):
         points = sim[idx]                                               # array (K, 12)
         x = points[:, self.input_cols]                                  # array (K, n_input)
         y = points[:, self.output_cols]                                 # array (K, n_output)
-        x = normalize_x(x, self.stats)
+        x = normalize_x(x, self.stats)   
+        y = normalize_y(y, self.stats)                               #normalizzazione direttamente qua dentro
         return torch.from_numpy(x).float(), torch.from_numpy(y).float()
 
 def split_by_simulation(sims, names, val_fraction, seed):
@@ -70,7 +71,17 @@ def normalization(train_sims, input_cols, output_cols):
     stats = {"mean_x": mean_x, "std_x": std_x, "mean_y": mean_y, "std_y": std_y}
     return stats
 
+def normalize_x(x, stats):
+    x_norm = (x - stats["mean_x"]) / stats["std_x"]
+    return x_norm
 
+def normalize_y(y, stats):
+    y_norm = (y - stats["mean_y"]) / stats["std_y"]
+    return y_norm
+
+def denormalize_y(y_norm, stats):
+    y_denorm = stats["std_y"]* y_norm + stats["mean_y"]
+    return y_denorm
 
 def save_stats(stats, path):
     folder = os.path.dirname(path)              # cartella del file, es. "artifacts"
@@ -85,9 +96,7 @@ def load_stats(path):
         stats[key] = f[key]
     return stats
 
-def normalize_x(x, stats):
-    x_norm = (x - stats["mean_x"]) / stats["std_x"]
-    return x_norm
+
     
 def load_cached(path, n_sims=None):
     if os.path.exists(path):                    # già salvato: lo rileggo, pochi secondi
