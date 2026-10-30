@@ -20,19 +20,26 @@ seed = cfg["split"]["seed"]
 
 
 class AirfDataset (Dataset):
-    def __init__(self, sims, k, input_cols, output_cols, stats): #qui passi tutto ciò che la classe deve ricordare
+    def __init__(self, sims, k, input_cols, output_cols, stats, fixed= False, seed=0): #qui passi tutto ciò che la classe deve ricordare
         self.sims = sims
         self.k = k
         self.input_cols = input_cols
         self.output_cols = output_cols
         self.stats = stats
+        self.fixed = fixed
+        self.rng = np.random.default_rng(seed)
+        if fixed:
+            self.fixed_idx = [self.rng.choice(sim.shape[0], k, replace = False) for sim in sims]
 
     def __len__(self): #restituisce il numero di simulazioni
         return len(self.sims)
 
     def __getitem__(self,i): #deve restituire K punti casuali della simulazione i, separando input e target
-        sim = self.sims[i]                                              # array (N, 12)
-        idx = np.random.choice(sim.shape[0], self.k, replace = False)   # K righe distinte tra 0 e N-1
+        sim = self.sims[i]     
+        if self.fixed:       
+            idx = self.fixed_idx[i]
+        else:                                  # array (N, 12)
+            idx = self.rng.choice(sim.shape[0], self.k, replace = False)   # K righe distinte tra 0 e N-1
         points = sim[idx]                                               # array (K, 12)
         x = points[:, self.input_cols]                                  # array (K, n_input)
         y = points[:, self.output_cols]                                 # array (K, n_output)
