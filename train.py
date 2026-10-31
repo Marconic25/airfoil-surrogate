@@ -86,20 +86,19 @@ if __name__ == "__main__":
     save_stats(stats, "runs/stats.npz")
     with open("runs/log.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["epoch", "train_loss", "val_loss"])
+        writer.writerow(["epoch", "train_loss", "val_loss", "lr"])
         for epoch in range(epochs):
             train_loss = run_epoch(model, train_loader, criterion, optimizer)
             val_loss = run_epoch(model, val_loader, criterion, optimizer = None)
-            writer.writerow([epoch, train_loss, val_loss])
+            lr = optimizer.param_groups[0]["lr"]    # lr usato in questa epoca: da leggere PRIMA di scheduler.step()
+            writer.writerow([epoch, train_loss, val_loss, lr])
             f.flush()                           # scrive subito su disco, utile se interrompi
             if val_loss < best_val:
                 best_val = val_loss
                 torch.save({"model": model.state_dict(), "cfg": cfg,
-            "epoch": epoch, "val_loss": val_loss}, "runs/best.pt")
-        scheduler.step()
-
-                
-        print(f"epoch {epoch:3d}  train {train_loss:.4f}  val {val_loss:.4f}")
+                            "epoch": epoch, "val_loss": val_loss}, "runs/best.pt")
+            scheduler.step()                    # una volta per epoca, dentro il for
+            print(f"epoch {epoch:3d}  train {train_loss:.4f}  val {val_loss:.4f}  lr {lr:.1e}")
 
 
                                       
