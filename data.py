@@ -106,7 +106,9 @@ def load_stats(path):
 
     
 def load_cached(path, n_sims=None):
-    if os.path.exists(path):                    # già salvato: lo rileggo, pochi secondi
+    tag = "all" if n_sims is None else str(n_sims)
+    path = path.replace(".pkl", f"_{tag}.pkl")  # un file di cache per ogni n_sims, es. data/cache_dev_100.pkl
+    if os.path.exists(path):                  # già salvato: lo rileggo, pochi secondi
         with open(path, "rb") as f:
             return pickle.load(f)
     dataset, dataname = af.dataset.load(root="data/Dataset", task="scarce", train=True)   # lento, solo la prima volta

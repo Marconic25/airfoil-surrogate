@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
 from model import MLP
-from data import AirfDataset, load_cached, split_by_simulation, normalization
+from data import AirfDataset, load_cached, split_by_simulation, normalization, save_stats
 import yaml
 import numpy as np
 from torch.utils.data import DataLoader
+import os 
+import csv
 
 # ordine della parte principale (da scrivere):
 # 1) carica i dati e split per simulazione
@@ -54,7 +56,7 @@ if __name__ == "__main__":
 
 
     # 1) carica e split per simulazione
-    dataset, dataname = load_cached("data/cache_dev.pkl", n_sims=30)
+    dataset, dataname = load_cached("data/cache_dev.pkl", n_sims=cfg["dataset"]["n_sims"])
     train_sims, train_names, val_sims, val_names = split_by_simulation(dataset, dataname, val_fraction, split_seed)
 
     # 2) statistiche calcolate SOLO sul train
@@ -75,15 +77,30 @@ if __name__ == "__main__":
     model = MLP(in_dim, out_dim, cfg["model"]["hidden"], cfg["model"]["depth"])
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr = cfg["train"]["lr"])
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=cfg["train"]["step_size"], gamma=cfg["train"]["gamma"])
+    # training: ciclo sulle epoche, con log CSV
+    os.makedirs("runs", exist_ok=True)
+    epochs = cfg["train"]["epochs"]
 
-    # overfit su un batch: deve portare la loss quasi a zero
-    x, y = next(iter(train_loader))
-    x, y = x[:1, :512], y[:1, :512]              # 1 simulazione, 512 punti (vedi nota sotto)
-    one_batch = [(x, y)]                         # lista con un solo batch, funziona come loader
-    for step in range(3000):
-        loss =  run_epoch(model, one_batch, criterion, optimizer)                             # TODO: una chiamata a run_epoch, in training
-        if step % 50 == 0:
-            print(step, loss)
+    best_val = float("inf")
+    save_stats(stats, "runs/stats.npz")
+    with open("runs/log.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "val_loss"])
+        for epoch in range(epochs):
+            train_loss = run_epoch(model, train_loader, criterion, optimizer)
+            val_loss = run_epoch(model, val_loader, criterion, optimizer = None)
+            writer.writerow([epoch, train_loss, val_loss])
+            f.flush()                           # scrive subito su disco, utile se interrompi
+            if val_loss < best_val:
+                best_val = val_loss
+                torch.save({"model": model.state_dict(), "cfg": cfg,
+            "epoch": epoch, "val_loss": val_loss}, "runs/best.pt")
+        scheduler.step()
+
+                
+        print(f"epoch {epoch:3d}  train {train_loss:.4f}  val {val_loss:.4f}")
+
 
                                       
 

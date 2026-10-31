@@ -2,6 +2,7 @@ dataset:
   root: data/Dataset
   task: scarce
   k_points: 16000
+  n_sims: 100
 
 columns:
   input: [0,1,2,3,4,5,6]
@@ -18,5 +19,7 @@ model:
 train:
   lr: 0.001
   batch_size: 4
-  epochs: 50
+  epochs: 100
   seed: 0
+  step_size: 30
+  gamma: 0.3
