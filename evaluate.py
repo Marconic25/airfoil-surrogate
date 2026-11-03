@@ -80,6 +80,15 @@ if __name__ == "__main__":
     names = ["u", "v", "p", "nut"]
     for region, mse in errs.items():                     # RMSE in unità fisiche, stessa unità della variabile
         print(region, {n: round(float(v), 4) for n, v in zip(names, np.sqrt(mse))})
+
+    # errore per variabile e regione su file: report.py lo legge per tabella e grafici
+    with open("runs/errors_by_region.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["region", "variable", "rmse", "std_target", "rmse_norm"])
+        for region, mse in errs.items():
+            for n, e, s in zip(names, np.sqrt(mse), stats["std_y"]):
+                writer.writerow([region, n, float(e), float(s), float(e / s)])    # rmse_norm: in unità di deviazione standard
+
     sim = val_sims[0]
     pred = predict(model, sim, stats, input_cols)
     x, cp_t, cp_p = cp_surface(sim, pred)
